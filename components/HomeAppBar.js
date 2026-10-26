@@ -12,7 +12,7 @@ function HomeAppBar() {
       <Appbar.Action
         icon="cog"
         size={45}
-        color={"beige"}
+        color={"#a8c8fb"}
         onPress={() => navigation.navigate("Settings")}
       />
       {/* <Appbar.Action icon="dots-vertical" onPress={_handleMore} /> */}
@@ -22,12 +22,12 @@ function HomeAppBar() {
 
 const styles = StyleSheet.create({
   appBar: {
-    backgroundColor: "#040411",
+    backgroundColor: "#131313",
     zIndex: 1,
     elevation: 5,
     margin: 10,
     borderBottomWidth: 3,
-    borderBottomColor: "beige",
+    borderBottomColor: "#fff",
   },
 });
 

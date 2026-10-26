@@ -62,7 +62,7 @@ function HomeScreen() {
         Open camera
       </Button>
 
-      <Button
+      {/* <Button
         icon="image"
         mode="contained"
         textColor="black"
@@ -70,7 +70,7 @@ function HomeScreen() {
         style={styles.buttons}
       >
         Choose from gallery
-      </Button>
+      </Button> */}
     </View>
   );
 }
@@ -78,13 +78,20 @@ function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#040411",
+    backgroundColor: "#131313", // primary
+    // secondary : #303030
+    // white: #fff
+    // blue: #a8c8fb
+    // darker blue: #004a77
+    // font: #0a3171
+    // font: #a6c2ed
   },
   text: {
-    color: "beige",
+    color: "#fff",
     fontFamily: "Anton-Regular",
     marginLeft: 20,
-    marginBottom: 115,
+    marginTop: 10,
+    marginBottom: 126,
     fontSize: 50,
   },
 
@@ -99,11 +106,11 @@ const styles = StyleSheet.create({
     marginRight: 50,
     padding: 5,
     marginLeft: 50,
-    marginTop: 30,
+    marginTop: 40,
     borderRadius: 50,
-    backgroundColor: "beige",
+    backgroundColor: "#a8c8fb",
     borderWidth: 5,
-    borderColor: "black",
+    // borderColor: "#a8c8fb",
     fontFamily: "Anton-Regular",
   },
   // buttonText: {

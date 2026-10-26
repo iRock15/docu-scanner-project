@@ -3,9 +3,13 @@ import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { Button } from "react-native-paper";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { StorageAccessFramework, EncodingType } from "expo-file-system/legacy";
 import { File, Paths } from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useScan } from "../hooks/ScanContext";
+
+const SAF_DIR_KEY = "saf_save_directory_uri";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -57,20 +61,75 @@ async function buildHtml(pages) {
 </html>`;
 }
 
-/** Save the PDF to Documents (persistent, not cache) and return its uri */
-async function savePdfToDocuments(tmpUri) {
-  const name = `scan_${Date.now()}.pdf`;
-  const dest = new File(Paths.document, name);
-  await new File(tmpUri).copy(dest); // must await — copy() is async
-  return dest.uri;
+/**
+ * Save the PDF to a user-chosen public folder (Downloads by default) using
+ * the Android Storage Access Framework (SAF).
+ *
+ * SAF is the only reliable way to write arbitrary files to public storage on
+ * Android 10+ without a dangerous MANAGE_EXTERNAL_STORAGE permission.
+ *
+ * Flow:
+ *  1. First export ever  → system folder-picker opens (pre-aimed at Downloads)
+ *                          → user taps "Use this folder" once
+ *  2. SAF directory URI is persisted in AsyncStorage
+ *  3. Every subsequent export writes directly — zero user interaction
+ */
+async function savePdfToPublicDownloads(sourceUri, fileName) {
+  // --- 1. Resolve or request the SAF directory permission ---
+  let dirUri = await AsyncStorage.getItem(SAF_DIR_KEY);
+
+  if (!dirUri) {
+    // Pre-navigate the picker to the public Downloads folder
+    const downloadsHint =
+      StorageAccessFramework.getUriForDirectoryInRoot("Download");
+    const result =
+      await StorageAccessFramework.requestDirectoryPermissionsAsync(
+        downloadsHint,
+      );
+
+    if (!result.granted) {
+      throw new Error(
+        "Folder access denied — please grant permission to save PDFs.",
+      );
+    }
+    dirUri = result.directoryUri;
+    await AsyncStorage.setItem(SAF_DIR_KEY, dirUri);
+  }
+
+  // --- 2. Read the PDF as base64 ---
+  const base64 = await StorageAccessFramework.readAsStringAsync(sourceUri, {
+    encoding: EncodingType.Base64,
+  });
+
+  // --- 3. Create the file in the chosen public directory ---
+  const fileUri = await StorageAccessFramework.createFileAsync(
+    dirUri,
+    fileName,
+    "application/pdf",
+  );
+
+  // --- 4. Write the base64 content ---
+  await StorageAccessFramework.writeAsStringAsync(fileUri, base64, {
+    encoding: EncodingType.Base64,
+  });
+
+  return fileUri;
 }
 
 // ─── screen ─────────────────────────────────────────────────────────────────
 
 export default function Finish() {
   const navigation = useNavigation();
-  const { pages, exportStatus, pdfUri, exportError, startExport, finishExport, failExport, clearAll } =
-    useScan();
+  const {
+    pages,
+    exportStatus,
+    pdfUri,
+    exportError,
+    startExport,
+    finishExport,
+    failExport,
+    clearAll,
+  } = useScan();
 
   // kick off export as soon as the screen mounts
   useEffect(() => {
@@ -83,24 +142,43 @@ export default function Finish() {
     startExport();
     try {
       const html = await buildHtml(pages);
-      // expo-print renders HTML → PDF and gives us a tmp uri
-      const { uri: tmpUri } = await Print.printToFileAsync({ html, base64: false });
-      // copy to Documents so it survives app restarts
-      const savedUri = await savePdfToDocuments(tmpUri);
-      // delete the tmp file
-      try { new File(tmpUri).delete(); } catch (_) {}
-      finishExport(savedUri); // also clears page images from disk
+      // expo-print renders HTML → PDF into a temporary cache file
+      const { uri: tmpUri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+
+      const fileName = `scan_${Date.now()}.pdf`;
+
+      // 1. Save to app's persistent document directory (local file:// URI, required for ExpoSharing)
+      const localFile = new File(Paths.document, fileName);
+      await new File(tmpUri).copy(localFile);
+
+      // 2. Save a copy to public folder via SAF (visible in file manager)
+      await savePdfToPublicDownloads(localFile.uri, fileName);
+
+      // 3. Clean up the tmp cache file
+      try {
+        new File(tmpUri).delete();
+      } catch (_) {}
+
+      finishExport(localFile.uri); // also wipes the raw page images from disk
     } catch (err) {
       console.error(err);
       failExport(err?.message ?? "Unknown error");
     }
   };
 
+  // Share the saved PDF using the local file:// URI
   const onShare = async () => {
     if (!pdfUri) return;
     const canShare = await Sharing.isAvailableAsync();
     if (canShare) {
-      await Sharing.shareAsync(pdfUri, { mimeType: "application/pdf" });
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Share your PDF",
+        UTI: "com.adobe.pdf",
+      });
     }
   };
 
@@ -113,7 +191,7 @@ export default function Finish() {
   if (exportStatus === "idle" || exportStatus === "exporting") {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="beige" />
+        <ActivityIndicator size="large" color="#a8c8fb" />
         <Text style={styles.statusText}>Creating PDF…</Text>
       </View>
     );
@@ -123,7 +201,7 @@ export default function Finish() {
   if (exportStatus === "error") {
     return (
       <View style={[styles.container, styles.center]}>
-        <Text style={styles.icon}>⚠️</Text>
+        {/* <Text style={styles.icon}>⚠️</Text> */}
         <Text style={styles.title}>Export failed</Text>
         <Text style={styles.subtitle}>{exportError}</Text>
         <Button
@@ -140,7 +218,7 @@ export default function Finish() {
           onPress={onStartOver}
           style={[styles.btn, styles.btnOutlined]}
           labelStyle={styles.btnLabel}
-          textColor="beige"
+          textColor="#fff"
         >
           Start over
         </Button>
@@ -151,10 +229,10 @@ export default function Finish() {
   // ── success ──
   return (
     <View style={[styles.container, styles.center]}>
-      <Text style={styles.icon}>✅</Text>
+      {/* <Text style={styles.icon}>✅</Text> */}
       <Text style={styles.title}>PDF saved!</Text>
       <Text style={styles.subtitle} numberOfLines={3} ellipsizeMode="middle">
-        {pdfUri}
+        File name: {pdfUri ? decodeURIComponent(pdfUri.split("/").pop()) : ""}
       </Text>
 
       <Button
@@ -174,7 +252,7 @@ export default function Finish() {
         onPress={onStartOver}
         style={[styles.btn, styles.btnOutlined]}
         labelStyle={styles.btnLabel}
-        textColor="beige"
+        textColor="#fff"
       >
         Start over
       </Button>
@@ -187,7 +265,7 @@ export default function Finish() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#040411",
+    backgroundColor: "#131313",
     padding: 32,
   },
   center: {
@@ -199,23 +277,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: "beige",
+    color: "#a8c8fb",
     fontFamily: "Anton-Regular",
-    fontSize: 36,
-    marginBottom: 12,
+    fontSize: 50,
+    marginBottom: 2,
     textAlign: "center",
   },
   subtitle: {
-    color: "beige",
+    color: "#fff",
     fontFamily: "Anton-Regular",
-    fontSize: 13,
-    opacity: 0.5,
+    fontSize: 15,
+    opacity: 0.8,
     textAlign: "center",
-    marginBottom: 40,
+    marginBottom: 80,
     paddingHorizontal: 16,
   },
   statusText: {
-    color: "beige",
+    color: "#fff",
     fontFamily: "Anton-Regular",
     fontSize: 20,
     marginTop: 20,
@@ -224,14 +302,14 @@ const styles = StyleSheet.create({
   btn: {
     width: "100%",
     borderRadius: 50,
-    backgroundColor: "beige",
+    backgroundColor: "#a8c8fb",
     marginBottom: 16,
     paddingVertical: 4,
   },
   btnOutlined: {
     backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: "beige",
+    borderColor: "#fff",
   },
   btnLabel: {
     fontFamily: "Anton-Regular",

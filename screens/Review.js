@@ -56,7 +56,7 @@ function Review() {
         <IconButton
           icon="delete"
           size={20}
-          iconColor="beige"
+          iconColor="#a8c8fb"
           onPress={() => removePage(item.id)}
         />
       </View>
@@ -70,11 +70,13 @@ function Review() {
         <IconButton
           icon="arrow-left"
           size={26}
-          iconColor="beige"
+          iconColor="#fff"
           onPress={() => navigation.goBack()}
         />
         <Text style={styles.headerTitle}>Review</Text>
-        <Text style={styles.pageCount}>{pages.length} page{pages.length !== 1 ? "s" : ""}</Text>
+        <Text style={styles.pageCount}>
+          {pages.length} page{pages.length !== 1 ? "s" : ""}
+        </Text>
       </View>
 
       {/* ── Page grid ── */}
@@ -93,7 +95,7 @@ function Review() {
         <Button
           icon="plus"
           mode="outlined"
-          textColor="beige"
+          textColor="#fff"
           labelStyle={styles.btnLabel}
           style={styles.btnOutlined}
           onPress={onAddMore}
@@ -120,7 +122,7 @@ function Review() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#040411",
+    backgroundColor: "#131313",
   },
 
   // ── Header ──
@@ -130,21 +132,21 @@ const styles = StyleSheet.create({
     paddingTop: 44,
     paddingHorizontal: 8,
     paddingBottom: 8,
-    backgroundColor: "#040411",
+    backgroundColor: "#131313",
   },
   headerTitle: {
     flex: 1,
-    color: "beige",
+    color: "#fff",
     fontFamily: "Anton-Regular",
     fontSize: 26,
     marginLeft: 4,
   },
   pageCount: {
-    color: "beige",
+    color: "#d6d6d6",
     fontFamily: "Anton-Regular",
     fontSize: 16,
     marginRight: 8,
-    opacity: 0.6,
+    opacity: 0.9,
   },
 
   // ── Grid ──
@@ -159,16 +161,16 @@ const styles = StyleSheet.create({
   },
   card: {
     marginTop: 25,
-    backgroundColor: "#0d0d24",
+    backgroundColor: "#303030",
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "beige",
+    borderColor: "#fff",
     overflow: "hidden",
   },
   image: {
     width: "100%",
     aspectRatio: 3 / 4,
-    backgroundColor: "#1a1a38",
+    backgroundColor: "#303030",
   },
   footer: {
     flexDirection: "row",
@@ -177,12 +179,12 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   pageLabel: {
-    color: "beige",
+    color: "#fff",
     fontFamily: "Anton-Regular",
     fontSize: 16,
   },
   empty: {
-    color: "beige",
+    color: "#a8c8fb",
     fontFamily: "Anton-Regular",
     fontSize: 24,
     textAlign: "center",
@@ -200,9 +202,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingBottom: 32,
-    backgroundColor: "#040411",
+    backgroundColor: "#131313",
     borderTopWidth: 1,
-    borderTopColor: "#1a1a38",
+    borderTopColor: "#fff",
   },
   btnLabel: {
     fontFamily: "Anton-Regular",
@@ -212,12 +214,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: "beige",
+    borderColor: "#a8c8fb",
   },
   btnFilled: {
     flex: 1,
     borderRadius: 50,
-    backgroundColor: "beige",
+    backgroundColor: "#a8c8fb",
   },
 });
 
